@@ -1,0 +1,6 @@
+{
+  "name": "Conectados Teen - Desafio",
+  "description": "Desafio Teen: Troque o Celular pela Bíblia - Um módulo para otimizar o engajamento e a vida espiritual dos adolescentes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
