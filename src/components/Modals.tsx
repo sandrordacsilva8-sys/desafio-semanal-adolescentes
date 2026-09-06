@@ -198,7 +198,7 @@ export function AdminAuthModal({ isOpen, onClose }: ModalProps) {
 
 export function ReflectionModal({ 
   isOpen, onClose, challenge, onComplete 
-}: ModalProps & { challenge: Challenge | null, onComplete: (note: string) => void }) {
+}: ModalProps & { challenge: Challenge | null, onComplete: (note: string, minutes: number) => void }) {
   const [note, setNote] = useState('');
   const [openTime, setOpenTime] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
@@ -214,20 +214,22 @@ export function ReflectionModal({
   if (!isOpen || !challenge) return null;
 
   const handleConfirm = () => {
-    if (Date.now() - openTime < 3 * 60 * 1000) {
+    const elapsed = Date.now() - openTime;
+    if (elapsed < 3 * 60 * 1000) {
       setErrorMsg('Não concluiu: Não Desista, Perto está o Senhor');
       return;
     }
-    onComplete(note);
+    onComplete(note, Math.floor(elapsed / 60000));
     setNote('');
   };
 
   const handleSkip = () => {
-    if (Date.now() - openTime < 3 * 60 * 1000) {
+    const elapsed = Date.now() - openTime;
+    if (elapsed < 3 * 60 * 1000) {
       setErrorMsg('Não concluiu: Não Desista, Perto está o Senhor');
       return;
     }
-    onComplete('');
+    onComplete('', Math.floor(elapsed / 60000));
     setNote('');
   };
 

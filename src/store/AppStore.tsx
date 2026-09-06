@@ -18,7 +18,8 @@ interface AppContextType extends AppState {
   logoutAdmin: () => void;
   changeAdminPassword: (oldPass: string, newPass: string) => boolean;
   setCurrentView: (view: ViewState) => void;
-  completeChallenge: (challengeId: string, reflection?: string) => void;
+  completeChallenge: (challengeId: string, reflection?: string, bonusXP?: number) => void;
+  addBonusXP: (amount: number) => void;
   uncompleteChallenge: (challengeId: string) => void;
   addChallenge: (challenge: Omit<Challenge, 'id'>) => void;
   updateChallenge: (id: string, challenge: Partial<Challenge>) => void;
@@ -163,7 +164,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setCurrentView = (view: 'teen' | 'admin') => updateState({ currentView: view });
 
-  const completeChallenge = (challengeId: string, reflection?: string) => {
+  const completeChallenge = (challengeId: string, reflection?: string, bonusXP: number = 0) => {
     if (!state.currentUserId) return;
     setState(prev => {
       const users = prev.users.map(u => {
@@ -171,8 +172,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return {
             ...u,
             completedChallenges: [...u.completedChallenges, challengeId],
-            reflections: reflection ? { ...u.reflections, [challengeId]: reflection } : u.reflections
+            reflections: reflection ? { ...u.reflections, [challengeId]: reflection } : u.reflections,
+            bonusXP: (u.bonusXP || 0) + bonusXP
           };
+        }
+        return u;
+      });
+      return { ...prev, users };
+    });
+  };
+
+  const addBonusXP = (amount: number) => {
+    if (!state.currentUserId) return;
+    setState(prev => {
+      const users = prev.users.map(u => {
+        if (u.id === prev.currentUserId) {
+          return { ...u, bonusXP: (u.bonusXP || 0) + amount };
         }
         return u;
       });
@@ -253,6 +268,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       changeAdminPassword,
       setCurrentView,
       completeChallenge,
+      addBonusXP,
       uncompleteChallenge,
       addChallenge,
       updateChallenge,

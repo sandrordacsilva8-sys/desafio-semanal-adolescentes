@@ -143,7 +143,7 @@ export function AdminView() {
                 {users.map(u => {
                   const completed = u.completedChallenges.filter(id => challenges.some(c => c.id === id)).length;
                   const pct = challenges.length > 0 ? Math.round((completed / challenges.length) * 100) : 0;
-                  const xp = u.completedChallenges.reduce((sum, id) => sum + (challenges.find(c => c.id === id)?.xp || 0), 0);
+                  const xp = u.completedChallenges.reduce((sum, id) => sum + (challenges.find(c => c.id === id)?.xp || 0), 0) + (u.bonusXP || 0);
 
                   return (
                     <tr key={u.id} className="hover:bg-slate-800/40 transition">

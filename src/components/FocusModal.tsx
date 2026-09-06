@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { X, SmartphoneNfc, Play, Pause, RotateCcw } from 'lucide-react';
 import * as Tone from 'tone';
+import { useAppStore } from '../store/AppStore';
 
 export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  const { addBonusXP } = useAppStore();
   const [duration, setDuration] = useState(15);
   const [timeLeft, setTimeLeft] = useState(15 * 60);
   const [isRunning, setIsRunning] = useState(false);
@@ -14,11 +16,13 @@ export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       interval = setInterval(() => setTimeLeft(t => t - 1), 1000);
     } else if (timeLeft === 0 && isRunning) {
       setIsRunning(false);
-      setFeedbackMsg('Concluído! Tempo de qualidade com a Palavra.');
+      const earnedXP = duration * 5;
+      setFeedbackMsg(`Concluído! Tempo de qualidade. (+${earnedXP} XP)`);
+      addBonusXP(earnedXP);
       playTimerBell();
     }
     return () => clearInterval(interval);
-  }, [isRunning, timeLeft]);
+  }, [isRunning, timeLeft, duration]);
 
   const playTimerBell = async () => {
     try {
@@ -46,7 +50,10 @@ export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
     if (elapsed > 0 && elapsed < 3 * 60 && timeLeft > 0) {
       setFeedbackMsg('Não concluiu: Não Desista, Perto está o Senhor');
     } else if (elapsed >= 3 * 60 && timeLeft > 0) {
-      setFeedbackMsg(`Muito bem! Você conseguiu focar por ${Math.floor(elapsed / 60)} minutos.`);
+      const mins = Math.floor(elapsed / 60);
+      const earnedXP = mins * 5;
+      setFeedbackMsg(`Muito bem! Foco parcial de ${mins} min. (+${earnedXP} XP)`);
+      addBonusXP(earnedXP);
     } else if (timeLeft === duration * 60) {
       setFeedbackMsg('');
     }

@@ -27,7 +27,7 @@ export function TeenView() {
   const totalXP = currentUser.completedChallenges.reduce((total, id) => {
     const ch = challenges.find(c => c.id === id);
     return total + (ch ? ch.xp : 0);
-  }, 0);
+  }, 0) + (currentUser.bonusXP || 0);
 
   const getRankBadge = () => {
     if (percentage === 100) return { label: '🌟 Mestre da Palavra', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
@@ -46,9 +46,10 @@ export function TeenView() {
     }
   };
 
-  const handleComplete = async (note: string) => {
+  const handleComplete = async (note: string, minutesSpent: number) => {
     if (pendingChallenge) {
-      completeChallenge(pendingChallenge.id, note);
+      const bonusXP = minutesSpent * 5; // 5 XP per minute spent
+      completeChallenge(pendingChallenge.id, note, bonusXP);
       
       try {
         await Tone.start();
@@ -67,8 +68,8 @@ export function TeenView() {
 
   const filteredChallenges = challenges.filter(c => activeFilter === 'all' || c.category === activeFilter);
   const sortedUsers = [...users].sort((a, b) => {
-    const xpB = a.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0);
-    const xpA = b.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0);
+    const xpB = a.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0) + (b.bonusXP || 0);
+    const xpA = b.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0) + (a.bonusXP || 0);
     return xpA - xpB;
   });
 
@@ -252,7 +253,7 @@ export function TeenView() {
             <div className="space-y-2.5">
               {sortedUsers.slice(0, 5).map((u, idx) => {
                 const isCurrent = u.id === currentUser.id;
-                const xp = u.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0);
+                const xp = u.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0) + (u.bonusXP || 0);
                 const position = idx < 3 ? ['🥇', '🥈', '🥉'][idx] : `#${idx + 1}`;
                 
                 return (

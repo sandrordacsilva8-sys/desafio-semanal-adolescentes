@@ -17,6 +17,7 @@ export interface User {
   streak: number;
   completedChallenges: string[];
   reflections: Record<string, string>;
+  bonusXP?: number;
 }
 
 export type ViewState = 'teen' | 'admin' | 'bible';
