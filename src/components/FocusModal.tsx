@@ -6,6 +6,7 @@ export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
   const [duration, setDuration] = useState(15);
   const [timeLeft, setTimeLeft] = useState(15 * 60);
   const [isRunning, setIsRunning] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState('');
 
   useEffect(() => {
     let interval: any = null;
@@ -13,6 +14,7 @@ export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
       interval = setInterval(() => setTimeLeft(t => t - 1), 1000);
     } else if (timeLeft === 0 && isRunning) {
       setIsRunning(false);
+      setFeedbackMsg('Concluído! Tempo de qualidade com a Palavra.');
       playTimerBell();
     }
     return () => clearInterval(interval);
@@ -31,16 +33,36 @@ export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
   if (!isOpen) return null;
 
   const toggle = async () => {
-    if (!isRunning) await Tone.start();
+    if (!isRunning) {
+      setFeedbackMsg('');
+      await Tone.start();
+    }
     setIsRunning(!isRunning);
   };
 
   const reset = () => {
+    const elapsed = duration * 60 - timeLeft;
+    
+    if (elapsed > 0 && elapsed < 3 * 60 && timeLeft > 0) {
+      setFeedbackMsg('Não concluiu: Não Desista, Perto está o Senhor');
+    } else if (elapsed >= 3 * 60 && timeLeft > 0) {
+      setFeedbackMsg(`Muito bem! Você conseguiu focar por ${Math.floor(elapsed / 60)} minutos.`);
+    } else if (timeLeft === duration * 60) {
+      setFeedbackMsg('');
+    }
+    
     setIsRunning(false);
     setTimeLeft(duration * 60);
   };
 
+  const handleClose = () => {
+    reset();
+    setFeedbackMsg('');
+    onClose();
+  };
+
   const setDurationAndReset = (mins: number) => {
+    setFeedbackMsg('');
     setDuration(mins);
     setTimeLeft(mins * 60);
     setIsRunning(false);
@@ -53,7 +75,7 @@ export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
   return (
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 text-center space-y-6 shadow-2xl relative">
-        <button onClick={() => { reset(); onClose(); }} className="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
+        <button onClick={handleClose} className="absolute top-4 right-4 text-slate-400 hover:text-white p-2">
           <X className="w-5 h-5" />
         </button>
 
@@ -71,7 +93,18 @@ export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           <span className="text-xs text-slate-400 block mt-2">
             {isRunning ? 'Bíblia aberta, mente calma...' : (timeLeft === 0 ? 'Concluído!' : 'Selecione o tempo e inicie o cronômetro')}
           </span>
-          {!isRunning && timeLeft === duration * 60 && (
+          
+          {feedbackMsg && (
+            <div className={`mt-4 p-3 rounded-xl text-sm font-bold animate-in fade-in ${
+              feedbackMsg.includes('Não concluiu') 
+                ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400' 
+                : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+            }`}>
+              {feedbackMsg}
+            </div>
+          )}
+
+          {!isRunning && timeLeft === duration * 60 && !feedbackMsg && (
             <div className="flex justify-center gap-2 mt-4">
               {[5, 10, 15].map(m => (
                 <button 
@@ -103,6 +136,7 @@ export function FocusModal({ isOpen, onClose }: { isOpen: boolean, onClose: () =
           </button>
           <button 
             onClick={reset} 
+            title="Encerrar"
             className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl text-xs sm:text-sm transition"
           >
             <RotateCcw className="w-4 h-4" />
