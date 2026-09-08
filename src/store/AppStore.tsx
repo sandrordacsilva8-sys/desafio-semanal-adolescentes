@@ -1,9 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Challenge, ViewState } from '../types';
+import { User, Challenge, ViewState, LibraryBook, VerseOfTheDay, Devotional } from '../types';
 
 interface AppState {
   users: User[];
   challenges: Challenge[];
+  books: LibraryBook[];
+  devotionals: Devotional[];
+  verseOfTheDay: VerseOfTheDay | null;
   currentUserId: string | null;
   adminPassword: string;
   isAdminAuthenticated: boolean;
@@ -25,6 +28,12 @@ interface AppContextType extends AppState {
   updateChallenge: (id: string, challenge: Partial<Challenge>) => void;
   deleteChallenge: (id: string) => void;
   deleteUser: (id: string) => void;
+  addBook: (book: Omit<LibraryBook, 'id'> | LibraryBook) => void;
+  deleteBook: (id: string) => void;
+  setVerseOfTheDay: (verse: VerseOfTheDay | null) => void;
+  addDevotional: (devotional: Omit<Devotional, 'id'>) => void;
+  updateDevotional: (id: string, devotional: Partial<Devotional>) => void;
+  deleteDevotional: (id: string) => void;
   resetAllProgress: () => void;
   currentUser: User | null;
 }
@@ -92,6 +101,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return {
       users: [],
       challenges: INITIAL_CHALLENGES,
+      books: [],
+      devotionals: [],
+      verseOfTheDay: null,
       currentUserId: null,
       adminPassword: 'lider123',
       isAdminAuthenticated: false,
@@ -103,10 +115,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('conecta_teen_state', JSON.stringify({
       users: state.users,
       challenges: state.challenges,
+      books: state.books || [],
+      devotionals: state.devotionals || [],
+      verseOfTheDay: state.verseOfTheDay || null,
       currentUserId: state.currentUserId,
       adminPassword: state.adminPassword,
     }));
-  }, [state.users, state.challenges, state.currentUserId, state.adminPassword]);
+  }, [state.users, state.challenges, state.books, state.devotionals, state.verseOfTheDay, state.currentUserId, state.adminPassword]);
 
   const currentUser = state.users.find(u => u.id === state.currentUserId) || null;
 
@@ -250,6 +265,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const addBook = (book: Omit<LibraryBook, 'id'> | LibraryBook) => {
+    const newBook: LibraryBook = { id: 'b_' + Date.now(), ...book };
+    updateState({ books: [newBook, ...(state.books || [])] });
+  };
+
+  const deleteBook = (id: string) => {
+    updateState({ books: (state.books || []).filter(b => b.id !== id) });
+  };
+
+  const setVerseOfTheDay = (verse: VerseOfTheDay | null) => {
+    updateState({ verseOfTheDay: verse });
+  };
+
+  const addDevotional = (devotional: Omit<Devotional, 'id'>) => {
+    const newDevotional: Devotional = { ...devotional, id: 'd_' + Date.now() };
+    updateState({ devotionals: [newDevotional, ...(state.devotionals || [])] });
+  };
+
+  const updateDevotional = (id: string, updates: Partial<Devotional>) => {
+    updateState({
+      devotionals: (state.devotionals || []).map(d => d.id === id ? { ...d, ...updates } : d)
+    });
+  };
+
+  const deleteDevotional = (id: string) => {
+    updateState({ devotionals: (state.devotionals || []).filter(d => d.id !== id) });
+  };
+
   const resetAllProgress = () => {
     updateState({
       users: state.users.map(u => ({ ...u, completedChallenges: [], reflections: {} }))
@@ -274,6 +317,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateChallenge,
       deleteChallenge,
       deleteUser,
+      addBook,
+      deleteBook,
+      setVerseOfTheDay,
+      addDevotional,
+      updateDevotional,
+      deleteDevotional,
       resetAllProgress
     }}>
       {children}

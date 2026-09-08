@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Shield, SquarePen, Trash2, RotateCcw } from 'lucide-react';
 import { useAppStore } from '../store/AppStore';
 import { Challenge } from '../types';
@@ -113,11 +113,11 @@ export function ChallengeModal({
 
   useEffect(() => {
     if (challenge) {
-      setTitle(challenge.title);
-      setDescription(challenge.description);
-      setCategory(challenge.category);
-      setXp(challenge.xp);
-      setRef(challenge.ref);
+      setTitle(challenge.title || '');
+      setDescription(challenge.description || '');
+      setCategory(challenge.category || 'detox');
+      setXp(challenge.xp ?? 50);
+      setRef(challenge.ref || '');
     } else {
       setTitle('');
       setDescription('');
@@ -156,7 +156,7 @@ export function ChallengeModal({
             <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Título do Desafio</label>
             <input 
               type="text" required placeholder="Ex: Deixar o celular na sala" 
-              value={title} onChange={e => setTitle(e.target.value)}
+              value={title || ''} onChange={e => setTitle(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm" 
             />
           </div>
@@ -165,7 +165,7 @@ export function ChallengeModal({
             <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Descrição</label>
             <textarea 
               required rows={2} placeholder="Explique a instrução..." 
-              value={description} onChange={e => setDescription(e.target.value)}
+              value={description || ''} onChange={e => setDescription(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm"
             ></textarea>
           </div>
@@ -174,7 +174,7 @@ export function ChallengeModal({
             <div>
               <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Categoria</label>
               <select 
-                value={category} onChange={e => setCategory(e.target.value)}
+                value={category || 'detox'} onChange={e => setCategory(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm"
               >
                 <option value="detox">📵 Detox de Celular</option>
@@ -187,7 +187,7 @@ export function ChallengeModal({
               <label className="block text-xs font-bold text-slate-300 uppercase mb-1">XP</label>
               <input 
                 type="number" min="10" max="200" step="5" required
-                value={xp} onChange={e => setXp(parseInt(e.target.value))}
+                value={isNaN(xp) ? '' : xp} onChange={e => setXp(e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)}
                 className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm" 
               />
             </div>
@@ -197,7 +197,7 @@ export function ChallengeModal({
             <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Versículo Base (Opcional)</label>
             <input 
               type="text" placeholder="Ex: Salmos 119:105" 
-              value={ref} onChange={e => setRef(e.target.value)}
+              value={ref || ''} onChange={e => setRef(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm" 
             />
           </div>

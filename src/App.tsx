@@ -9,6 +9,8 @@ import { Header } from './components/Header';
 import { TeenView } from './components/TeenView';
 import { AdminView } from './components/AdminView';
 import { BibleView } from './components/BibleView';
+import { LibraryView } from './components/LibraryView';
+import { DevotionalsView } from './components/DevotionalsView';
 import { AuthModal, AdminAuthModal } from './components/Modals';
 
 function AppContent() {
@@ -27,6 +29,8 @@ function AppContent() {
         {currentView === 'teen' && <TeenView />}
         {currentView === 'admin' && <AdminView />}
         {currentView === 'bible' && <BibleView />}
+        {currentView === 'library' && <LibraryView />}
+        {currentView === 'devotionals' && <DevotionalsView />}
       </main>
 
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />

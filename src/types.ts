@@ -20,7 +20,26 @@ export interface User {
   bonusXP?: number;
 }
 
-export type ViewState = 'teen' | 'admin' | 'bible';
+export type ViewState = 'teen' | 'admin' | 'bible' | 'library' | 'devotionals';
+
+export interface LibraryBook {
+  id: string;
+  title: string;
+  url?: string;
+  isPdf?: boolean;
+}
+
+export interface VerseOfTheDay {
+  text: string;
+  reference: string;
+}
+
+export interface Devotional {
+  id: string;
+  title: string;
+  content: string;
+  date: string;
+}
 
 export interface Badge {
   id: string;

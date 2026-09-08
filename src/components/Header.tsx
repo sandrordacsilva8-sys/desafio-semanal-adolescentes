@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/AppStore';
-import { BookOpen, Shield, ChevronDown, ArrowLeft, BookMarked } from 'lucide-react';
+import { BookOpen, Shield, ChevronDown, ArrowLeft, BookMarked, SquarePen } from 'lucide-react';
 import { useState } from 'react';
 
 export function Header({ onOpenAuth, onOpenAdminAuth }: { onOpenAuth: () => void, onOpenAdminAuth: () => void }) {
@@ -50,6 +50,30 @@ export function Header({ onOpenAuth, onOpenAdminAuth }: { onOpenAuth: () => void
             </>
           ) : (
             <>
+              <button 
+                onClick={() => setCurrentView('library')} 
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 shadow-sm ${
+                  currentView === 'library' 
+                    ? 'border-indigo-500 bg-indigo-600 text-white' 
+                    : 'border-slate-700 bg-slate-800 text-indigo-300 hover:text-white'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Biblioteca</span>
+              </button>
+
+              <button 
+                onClick={() => setCurrentView('devotionals')} 
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 shadow-sm ${
+                  currentView === 'devotionals' 
+                    ? 'border-indigo-500 bg-indigo-600 text-white' 
+                    : 'border-slate-700 bg-slate-800 text-indigo-300 hover:text-white'
+                }`}
+              >
+                <SquarePen className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Devocionais</span>
+              </button>
+
               <button 
                 onClick={() => setCurrentView('bible')} 
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 shadow-sm ${

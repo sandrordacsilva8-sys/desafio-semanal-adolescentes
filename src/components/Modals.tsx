@@ -83,7 +83,7 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
               <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Seu Nome / Apelido</label>
               <input 
                 type="text" required placeholder="Ex: Lucas Silva" 
-                value={name} onChange={e => setName(e.target.value)}
+                value={name || ''} onChange={e => setName(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 text-sm" 
               />
             </div>
@@ -95,7 +95,7 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">@</span>
               <input 
                 type="text" required placeholder={mode === 'login' ? "lucas_focado" : "lucas_silva"}
-                value={username} onChange={e => setUsername(e.target.value)}
+                value={username || ''} onChange={e => setUsername(e.target.value)}
                 className={`w-full pl-8 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none text-sm ${mode === 'login' ? 'focus:border-indigo-500' : 'focus:border-emerald-500'}`} 
               />
             </div>
@@ -105,7 +105,7 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
             <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Senha</label>
             <input 
               type="password" required placeholder="Digite sua senha" minLength={4}
-              value={password} onChange={e => setPassword(e.target.value)}
+              value={password || ''} onChange={e => setPassword(e.target.value)}
               className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none text-sm ${mode === 'login' ? 'focus:border-indigo-500' : 'focus:border-emerald-500'}`} 
             />
           </div>
@@ -115,7 +115,7 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
               <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Confirme a Senha</label>
               <input 
                 type="password" required placeholder="Repita a senha" minLength={4}
-                value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                value={confirmPassword || ''} onChange={e => setConfirmPassword(e.target.value)}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 text-sm" 
               />
             </div>
@@ -178,7 +178,7 @@ export function AdminAuthModal({ isOpen, onClose }: ModalProps) {
             <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Senha de Administrador</label>
             <input 
               type="password" required placeholder="Digite a senha" 
-              value={password} onChange={e => setPassword(e.target.value)}
+              value={password || ''} onChange={e => setPassword(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm" 
             />
             <p className="text-[11px] text-slate-500 mt-1 italic">Dica: <strong className="text-indigo-400">lider123</strong></p>
@@ -255,7 +255,7 @@ export function ReflectionModal({
           <textarea 
             rows={3} 
             placeholder="Ex: Deixar o celular fora do quarto me deu paz..." 
-            value={note} onChange={e => setNote(e.target.value)}
+            value={note || ''} onChange={e => setNote(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 text-sm"
           ></textarea>
         </div>

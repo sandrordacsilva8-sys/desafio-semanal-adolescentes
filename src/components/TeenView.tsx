@@ -73,6 +73,8 @@ export function TeenView() {
     return xpA - xpB;
   });
 
+  const { verseOfTheDay } = useAppStore();
+
   return (
     <section className="space-y-6 animate-in fade-in duration-300">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-500/30 p-6 sm:p-8 shadow-2xl">
@@ -151,9 +153,9 @@ export function TeenView() {
         </div>
         <div className="flex-1">
           <p className="text-xs sm:text-sm italic text-slate-200">
-            "Não se amoldem ao padrão deste mundo, mas transformem-se pela renovação da sua mente..."
+            "{verseOfTheDay?.text || 'Não se amoldem ao padrão deste mundo, mas transformem-se pela renovação da sua mente...'}"
           </p>
-          <span className="text-[11px] font-semibold text-emerald-400 block mt-1">Romanos 12:2</span>
+          <span className="text-[11px] font-semibold text-emerald-400 block mt-1">{verseOfTheDay?.reference || 'Romanos 12:2'}</span>
         </div>
       </div>
 
