@@ -182,13 +182,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const completeChallenge = (challengeId: string, reflection?: string, bonusXP: number = 0) => {
     if (!state.currentUserId) return;
     setState(prev => {
+      const challenge = prev.challenges.find(c => c.id === challengeId);
+      const xpEarned = (challenge?.xp || 0) + bonusXP;
+
       const users = prev.users.map(u => {
         if (u.id === prev.currentUserId) {
+          // Calcula XP atual se ainda não estiver definido no totalXP
+          const currentTotalXP = u.totalXP ?? (u.completedChallenges.reduce((acc, id) => {
+            const ch = prev.challenges.find(c => c.id === id);
+            return acc + (ch ? ch.xp : 0);
+          }, 0) + (u.bonusXP || 0));
+
+          const newCompleted = [...u.completedChallenges, challengeId];
+          const newReflections = reflection ? { ...u.reflections, [challengeId]: reflection } : u.reflections;
+          
+          let finalCompleted = newCompleted;
+          let finalReflections = newReflections;
+
+          // Condição de ciclo: checa se todos os desafios disponíveis foram concluídos
+          const activeChallengeIds = prev.challenges.map(c => c.id);
+          const hasAll = activeChallengeIds.length > 0 && activeChallengeIds.every(id => newCompleted.includes(id));
+          
+          if (hasAll) {
+            // Volta status para não concluído destravando tudo
+            finalCompleted = []; 
+            // Mantém ou reseta reflexões? Melhor limpar para a nova rodada
+            finalReflections = {};
+          }
+
           return {
             ...u,
-            completedChallenges: [...u.completedChallenges, challengeId],
-            reflections: reflection ? { ...u.reflections, [challengeId]: reflection } : u.reflections,
-            bonusXP: (u.bonusXP || 0) + bonusXP
+            completedChallenges: finalCompleted,
+            reflections: finalReflections,
+            totalXP: currentTotalXP + xpEarned,
+            bonusXP: 0 // migrado para totalXP
           };
         }
         return u;
@@ -202,7 +229,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(prev => {
       const users = prev.users.map(u => {
         if (u.id === prev.currentUserId) {
-          return { ...u, bonusXP: (u.bonusXP || 0) + amount };
+          const currentTotalXP = u.totalXP ?? (u.completedChallenges.reduce((acc, id) => {
+            const ch = prev.challenges.find(c => c.id === id);
+            return acc + (ch ? ch.xp : 0);
+          }, 0) + (u.bonusXP || 0));
+          return { ...u, totalXP: currentTotalXP + amount, bonusXP: 0 };
         }
         return u;
       });
@@ -211,6 +242,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const uncompleteChallenge = (challengeId: string) => {
+    // Retirado a pedido do usuário (ficam desativados/bloqueados após concluídos)
+    // Mantemos a função por compatibilidade, mas sem remover XP
     if (!state.currentUserId) return;
     setState(prev => {
       const users = prev.users.map(u => {
@@ -295,7 +328,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resetAllProgress = () => {
     updateState({
-      users: state.users.map(u => ({ ...u, completedChallenges: [], reflections: {} }))
+      users: state.users.map(u => ({ ...u, completedChallenges: [], reflections: {}, totalXP: 0, bonusXP: 0 }))
     });
   };
 

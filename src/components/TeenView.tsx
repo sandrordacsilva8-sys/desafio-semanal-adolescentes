@@ -24,10 +24,10 @@ export function TeenView() {
   const totalCount = challenges.length;
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   
-  const totalXP = currentUser.completedChallenges.reduce((total, id) => {
+  const totalXP = currentUser.totalXP ?? (currentUser.completedChallenges.reduce((total, id) => {
     const ch = challenges.find(c => c.id === id);
     return total + (ch ? ch.xp : 0);
-  }, 0) + (currentUser.bonusXP || 0);
+  }, 0) + (currentUser.bonusXP || 0));
 
   const getRankBadge = () => {
     if (percentage === 100) return { label: '🌟 Mestre da Palavra', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
@@ -39,9 +39,7 @@ export function TeenView() {
 
   const handleChallengeToggle = (id: string) => {
     const isDone = currentUser.completedChallenges.includes(id);
-    if (isDone) {
-      uncompleteChallenge(id);
-    } else {
+    if (!isDone) {
       setPendingChallenge(challenges.find(c => c.id === id));
     }
   };
@@ -68,9 +66,8 @@ export function TeenView() {
 
   const filteredChallenges = challenges.filter(c => activeFilter === 'all' || c.category === activeFilter);
   const sortedUsers = [...users].sort((a, b) => {
-    const xpB = a.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0) + (b.bonusXP || 0);
-    const xpA = b.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0) + (a.bonusXP || 0);
-    return xpA - xpB;
+    const getXp = (u: any) => u.totalXP ?? (u.completedChallenges.reduce((acc: number, id: string) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0) + (u.bonusXP || 0));
+    return getXp(b) - getXp(a);
   });
 
   const { verseOfTheDay } = useAppStore();
@@ -226,10 +223,11 @@ export function TeenView() {
                       </div>
                       <div className="sm:shrink-0 pt-2 sm:pt-0">
                         <button 
+                          disabled={isDone}
                           onClick={() => handleChallengeToggle(ch.id)}
                           className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                             isDone 
-                              ? 'bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-emerald-500/30' 
+                              ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed' 
                               : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20'
                           }`}>
                           {isDone ? <Check className="w-4 h-4" /> : <CircleCheck className="w-4 h-4" />}
@@ -255,7 +253,7 @@ export function TeenView() {
             <div className="space-y-2.5">
               {sortedUsers.slice(0, 5).map((u, idx) => {
                 const isCurrent = u.id === currentUser.id;
-                const xp = u.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0) + (u.bonusXP || 0);
+                const xp = u.totalXP ?? (u.completedChallenges.reduce((acc, id) => acc + (challenges.find(c => c.id === id)?.xp || 0), 0) + (u.bonusXP || 0));
                 const position = idx < 3 ? ['🥇', '🥈', '🥉'][idx] : `#${idx + 1}`;
                 
                 return (
