@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/AppStore';
 import { FocusModal } from './FocusModal';
 import { ReflectionModal } from './Modals';
-import { Play, Hourglass, Quote, ListChecks, Trophy, Award, BookOpen, CircleCheck, Check } from 'lucide-react';
+import { Play, Timer, Hourglass, Quote, ListChecks, Trophy, Award, BookOpen, CircleCheck, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import * as Tone from 'tone';
 
@@ -13,10 +13,16 @@ const BADGES = [
 ];
 
 export function TeenView() {
-  const { currentUser, challenges, completeChallenge, uncompleteChallenge, users } = useAppStore();
+  const { currentUser, challenges, completeChallenge, uncompleteChallenge, users, startChallengeTimer } = useAppStore();
   const [activeFilter, setActiveFilter] = useState('all');
   const [isFocusOpen, setIsFocusOpen] = useState(false);
   const [pendingChallenge, setPendingChallenge] = useState<any>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (!currentUser) return null;
 
@@ -196,6 +202,16 @@ export function TeenView() {
               filteredChallenges.map(ch => {
                 const isDone = currentUser.completedChallenges.includes(ch.id);
                 const reflection = currentUser.reflections[ch.id];
+                const startTime = currentUser.activeTimers?.[ch.id];
+                const elapsedMs = startTime ? now - startTime : 0;
+                const remainingSeconds = Math.max(0, 180 - Math.floor(elapsedMs / 1000));
+                
+                const formatTime = (secs: number) => {
+                  const m = Math.floor(secs / 60).toString().padStart(2, '0');
+                  const s = (secs % 60).toString().padStart(2, '0');
+                  return `${m}:${s}`;
+                };
+
                 return (
                   <div key={ch.id} className={`bg-slate-900/90 border ${isDone ? 'border-emerald-500/40 bg-gradient-to-r from-slate-900 to-emerald-950/20' : 'border-slate-800 hover:border-slate-700'} rounded-2xl p-4 sm:p-5 transition-all shadow-md`}>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -221,18 +237,40 @@ export function TeenView() {
                           </div>
                         )}
                       </div>
-                      <div className="sm:shrink-0 pt-2 sm:pt-0">
-                        <button 
-                          disabled={isDone}
-                          onClick={() => handleChallengeToggle(ch.id)}
-                          className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                            isDone 
-                              ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed' 
-                              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20'
-                          }`}>
-                          {isDone ? <Check className="w-4 h-4" /> : <CircleCheck className="w-4 h-4" />}
-                          {isDone ? 'Concluído' : 'Marcar Feito'}
-                        </button>
+                      <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+                        {startTime && !isDone && remainingSeconds > 0 && (
+                          <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-3 py-2 rounded-xl border border-indigo-500/20 flex items-center justify-center gap-1.5 w-full sm:w-auto">
+                            <Timer className="w-4 h-4" />
+                            {formatTime(remainingSeconds)}
+                          </span>
+                        )}
+
+                        {isDone ? (
+                          <button 
+                            disabled
+                            className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+                          >
+                            <Check className="w-4 h-4" /> Concluído
+                          </button>
+                        ) : !startTime ? (
+                          <button
+                            onClick={() => startChallengeTimer(ch.id)}
+                            className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20"
+                          >
+                            <Play className="w-4 h-4 fill-current" /> Iniciar
+                          </button>
+                        ) : (
+                          <button 
+                            disabled={remainingSeconds > 0}
+                            onClick={() => handleChallengeToggle(ch.id)}
+                            className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                              remainingSeconds > 0 
+                                ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed' 
+                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20'
+                            }`}>
+                            <CircleCheck className="w-4 h-4" /> Marcar Feito
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

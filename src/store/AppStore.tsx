@@ -24,6 +24,7 @@ interface AppContextType extends AppState {
   completeChallenge: (challengeId: string, reflection?: string, bonusXP?: number) => void;
   addBonusXP: (amount: number) => void;
   uncompleteChallenge: (challengeId: string) => void;
+  startChallengeTimer: (challengeId: string) => void;
   addChallenge: (challenge: Omit<Challenge, 'id'>) => void;
   updateChallenge: (id: string, challenge: Partial<Challenge>) => void;
   deleteChallenge: (id: string) => void;
@@ -198,6 +199,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           
           let finalCompleted = newCompleted;
           let finalReflections = newReflections;
+          
+          const newActiveTimers = { ...(u.activeTimers || {}) };
+          delete newActiveTimers[challengeId];
 
           // Condição de ciclo: checa se todos os desafios disponíveis foram concluídos
           const activeChallengeIds = prev.challenges.map(c => c.id);
@@ -215,13 +219,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
             completedChallenges: finalCompleted,
             reflections: finalReflections,
             totalXP: currentTotalXP + xpEarned,
-            bonusXP: 0 // migrado para totalXP
+            bonusXP: 0, // migrado para totalXP
+            activeTimers: newActiveTimers
           };
         }
         return u;
       });
       return { ...prev, users };
     });
+  };
+
+  const startChallengeTimer = (challengeId: string) => {
+    if (!state.currentUserId) return;
+    setState(prev => ({
+      ...prev,
+      users: prev.users.map(u => {
+        if (u.id === prev.currentUserId) {
+          return {
+            ...u,
+            activeTimers: { ...(u.activeTimers || {}), [challengeId]: Date.now() }
+          };
+        }
+        return u;
+      })
+    }));
   };
 
   const addBonusXP = (amount: number) => {
@@ -328,7 +349,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resetAllProgress = () => {
     updateState({
-      users: state.users.map(u => ({ ...u, completedChallenges: [], reflections: {}, totalXP: 0, bonusXP: 0 }))
+      users: state.users.map(u => ({ ...u, completedChallenges: [], reflections: {}, totalXP: 0, bonusXP: 0, activeTimers: {} }))
     });
   };
 
@@ -346,6 +367,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       completeChallenge,
       addBonusXP,
       uncompleteChallenge,
+      startChallengeTimer,
       addChallenge,
       updateChallenge,
       deleteChallenge,

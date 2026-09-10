@@ -18,6 +18,8 @@ export interface User {
   completedChallenges: string[];
   reflections: Record<string, string>;
   bonusXP?: number;
+  totalXP?: number;
+  activeTimers?: Record<string, number>;
 }
 
 export type ViewState = 'teen' | 'admin' | 'bible' | 'library' | 'devotionals';
