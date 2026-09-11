@@ -1,26 +1,45 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Challenge, ViewState, LibraryBook, VerseOfTheDay, Devotional } from '../types';
+import { Challenge, User, LibraryBook, Devotional, VerseOfTheDay, ViewState } from '../types';
+import { 
+  auth, 
+  db, 
+  googleProvider,
+  handleFirestoreError, 
+  OperationType 
+} from '../firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signInWithPopup, 
+  signOut,
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
 
-interface AppState {
+interface AppContextType {
+  currentUser: User | null;
+  currentUserId: string | null;
   users: User[];
   challenges: Challenge[];
   books: LibraryBook[];
   devotionals: Devotional[];
   verseOfTheDay: VerseOfTheDay | null;
-  currentUserId: string | null;
-  adminPassword: string;
-  isAdminAuthenticated: boolean;
   currentView: ViewState;
-}
-
-interface AppContextType extends AppState {
-  loginTeen: (username: string, pass: string) => boolean;
-  registerTeen: (name: string, username: string, pass: string) => boolean;
+  isAdminAuthenticated: boolean;
+  setCurrentView: (view: ViewState) => void;
+  loginTeen: (username: string, pass: string) => Promise<boolean>;
+  registerTeen: (name: string, username: string, pass: string) => Promise<boolean>;
   logoutTeen: () => void;
-  loginAdmin: (pass: string) => boolean;
+  loginAdmin: (pass: string) => Promise<boolean>;
+  loginAdminWithGoogle: () => Promise<boolean>;
   logoutAdmin: () => void;
   changeAdminPassword: (oldPass: string, newPass: string) => boolean;
-  setCurrentView: (view: ViewState) => void;
   completeChallenge: (challengeId: string, reflection?: string, bonusXP?: number) => void;
   addBonusXP: (amount: number) => void;
   uncompleteChallenge: (challengeId: string) => void;
@@ -36,7 +55,6 @@ interface AppContextType extends AppState {
   updateDevotional: (id: string, devotional: Partial<Devotional>) => void;
   deleteDevotional: (id: string) => void;
   resetAllProgress: () => void;
-  currentUser: User | null;
 }
 
 const INITIAL_CHALLENGES: Challenge[] = [
@@ -85,285 +103,553 @@ const INITIAL_CHALLENGES: Challenge[] = [
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem('conecta_teen_state');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          ...parsed,
-          isAdminAuthenticated: false,
-          currentView: 'teen', // Always reset view on load
-        };
-      } catch (e) {
-        console.error("Failed to parse state", e);
-      }
-    }
-    return {
-      users: [],
-      challenges: INITIAL_CHALLENGES,
-      books: [],
-      devotionals: [],
-      verseOfTheDay: null,
-      currentUserId: null,
-      adminPassword: 'lider123',
-      isAdminAuthenticated: false,
-      currentView: 'teen',
-    };
+  const [users, setUsers] = useState<User[]>(() => {
+    const saved = localStorage.getItem('conecta_teen_users');
+    return saved ? JSON.parse(saved) : [];
   });
 
+  const [challenges, setChallenges] = useState<Challenge[]>(() => {
+    const saved = localStorage.getItem('conecta_teen_challenges');
+    return saved ? JSON.parse(saved) : INITIAL_CHALLENGES;
+  });
+
+  const [books, setBooks] = useState<LibraryBook[]>(() => {
+    const saved = localStorage.getItem('conecta_teen_books');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [devotionals, setDevotionals] = useState<Devotional[]>(() => {
+    const saved = localStorage.getItem('conecta_teen_devotionals');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [verseOfTheDay, setVerseOfTheDayState] = useState<VerseOfTheDay | null>(() => {
+    const saved = localStorage.getItem('conecta_teen_verse');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
+    return localStorage.getItem('conecta_teen_cur_user_id');
+  });
+
+  const [adminPassword, setAdminPassword] = useState<string>(() => {
+    return localStorage.getItem('conecta_teen_admin_pwd') || 'lider123';
+  });
+
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
+  const [currentView, setCurrentView] = useState<ViewState>('teen');
+
+  // Cache locally
   useEffect(() => {
-    localStorage.setItem('conecta_teen_state', JSON.stringify({
-      users: state.users,
-      challenges: state.challenges,
-      books: state.books || [],
-      devotionals: state.devotionals || [],
-      verseOfTheDay: state.verseOfTheDay || null,
-      currentUserId: state.currentUserId,
-      adminPassword: state.adminPassword,
-    }));
-  }, [state.users, state.challenges, state.books, state.devotionals, state.verseOfTheDay, state.currentUserId, state.adminPassword]);
+    localStorage.setItem('conecta_teen_users', JSON.stringify(users));
+  }, [users]);
 
-  const currentUser = state.users.find(u => u.id === state.currentUserId) || null;
+  useEffect(() => {
+    localStorage.setItem('conecta_teen_challenges', JSON.stringify(challenges));
+  }, [challenges]);
 
-  const updateState = (updates: Partial<AppState>) => {
-    setState(prev => ({ ...prev, ...updates }));
+  useEffect(() => {
+    localStorage.setItem('conecta_teen_books', JSON.stringify(books));
+  }, [books]);
+
+  useEffect(() => {
+    localStorage.setItem('conecta_teen_devotionals', JSON.stringify(devotionals));
+  }, [devotionals]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      localStorage.setItem('conecta_teen_cur_user_id', currentUserId);
+    } else {
+      localStorage.removeItem('conecta_teen_cur_user_id');
+    }
+  }, [currentUserId]);
+
+  useEffect(() => {
+    localStorage.setItem('conecta_teen_admin_pwd', adminPassword);
+  }, [adminPassword]);
+
+  // Sync with Firebase Auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        if (fbUser.email === 'sandrordacsilva8@gmail.com' || fbUser.email === 'admin_church_leader@desafioteen.internal') {
+          setIsAdminAuthenticated(true);
+        } else {
+          setCurrentUserId(fbUser.uid);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 1. Real-time Firestore Sync: USERS (Critical for Hostinger sync!)
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const remoteUsers: User[] = [];
+      snapshot.forEach(docSnap => {
+        remoteUsers.push(docSnap.data() as User);
+      });
+      if (remoteUsers.length > 0) {
+        setUsers(remoteUsers);
+      }
+    }, (error) => {
+      console.warn('Firestore users snapshot listener error:', error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Real-time Firestore Sync: CHALLENGES
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'challenges'), (snapshot) => {
+      if (snapshot.empty) {
+        // Seed initial challenges to Firestore if empty
+        INITIAL_CHALLENGES.forEach(ch => {
+          setDoc(doc(db, 'challenges', ch.id), ch).catch(() => {});
+        });
+      } else {
+        const remoteChallenges: Challenge[] = [];
+        snapshot.forEach(docSnap => {
+          remoteChallenges.push(docSnap.data() as Challenge);
+        });
+        setChallenges(remoteChallenges);
+      }
+    }, (error) => {
+      console.warn('Firestore challenges snapshot listener error:', error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 3. Real-time Firestore Sync: DEVOTIONALS
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'devotionals'), (snapshot) => {
+      const remote: Devotional[] = [];
+      snapshot.forEach(docSnap => {
+        remote.push(docSnap.data() as Devotional);
+      });
+      setDevotionals(remote);
+    }, (error) => {
+      console.warn('Firestore devotionals snapshot listener error:', error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 4. Real-time Firestore Sync: BOOKS
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'books'), (snapshot) => {
+      const remote: LibraryBook[] = [];
+      snapshot.forEach(docSnap => {
+        remote.push(docSnap.data() as LibraryBook);
+      });
+      setBooks(remote);
+    }, (error) => {
+      console.warn('Firestore books snapshot listener error:', error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 5. Real-time Firestore Sync: GLOBAL SETTINGS
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.verseOfTheDay !== undefined) {
+          setVerseOfTheDayState(data.verseOfTheDay);
+        }
+      }
+    }, (error) => {
+      console.warn('Firestore settings snapshot listener error:', error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const currentUser = users.find(u => u.id === currentUserId) || null;
+
+  const loginTeen = async (username: string, pass: string): Promise<boolean> => {
+    const cleanUser = username.toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '');
+    const authEmail = `${cleanUser}@desafioteen.internal`;
+    const authPassword = pass.length < 6 ? `${pass}_conecta_teen` : pass;
+
+    try {
+      const cred = await signInWithEmailAndPassword(auth, authEmail, authPassword);
+      setCurrentUserId(cred.user.uid);
+      setCurrentView('teen');
+      return true;
+    } catch (err: any) {
+      // Fallback check against existing users list
+      const matched = users.find(u => u.username.toLowerCase() === cleanUser);
+      if (matched && matched.password === pass) {
+        // Try to create/sync auth account
+        try {
+          const cred = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+          setCurrentUserId(cred.user.uid);
+        } catch {
+          setCurrentUserId(matched.id);
+        }
+        setCurrentView('teen');
+        return true;
+      }
+      return false;
+    }
   };
 
-  const loginTeen = (username: string, pass: string) => {
-    const u = state.users.find(u => u.username === username);
-    if (u && u.password === pass) {
-      updateState({ currentUserId: u.id, currentView: 'teen' });
+  const registerTeen = async (name: string, username: string, pass: string): Promise<boolean> => {
+    const cleanUser = username.toLowerCase().trim().replace(/[^a-z0-9_.-]/g, '');
+    if (users.some(u => u.username.toLowerCase() === cleanUser)) {
+      return false;
+    }
+
+    const authEmail = `${cleanUser}@desafioteen.internal`;
+    const authPassword = pass.length < 6 ? `${pass}_conecta_teen` : pass;
+
+    try {
+      let uid = '';
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        uid = cred.user.uid;
+      } catch (authErr: any) {
+        if (authErr.code === 'auth/email-already-in-use') {
+          const cred = await signInWithEmailAndPassword(auth, authEmail, authPassword);
+          uid = cred.user.uid;
+        } else {
+          throw authErr;
+        }
+      }
+
+      const newUser: User = {
+        id: uid,
+        name: name.trim(),
+        username: cleanUser,
+        password: pass,
+        streak: 1,
+        completedChallenges: [],
+        reflections: {},
+        totalXP: 0,
+        bonusXP: 0,
+        activeTimers: {}
+      };
+
+      // Instantly update local state
+      setUsers(prev => [...prev.filter(u => u.id !== uid), newUser]);
+      setCurrentUserId(uid);
+      setCurrentView('teen');
+
+      // Sync to Firestore cloud database so leader immediately sees it on Hostinger!
+      await setDoc(doc(db, 'users', uid), newUser);
+      return true;
+    } catch (error) {
+      console.error('Registration error:', error);
+      return false;
+    }
+  };
+
+  const logoutTeen = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {}
+    setCurrentUserId(null);
+  };
+
+  const loginAdmin = async (pass: string): Promise<boolean> => {
+    if (pass === adminPassword) {
+      try {
+        const leaderEmail = 'admin_church_leader@desafioteen.internal';
+        const leaderPass = 'lider123SecureChurch!';
+        try {
+          await signInWithEmailAndPassword(auth, leaderEmail, leaderPass);
+        } catch {
+          await createUserWithEmailAndPassword(auth, leaderEmail, leaderPass);
+        }
+      } catch (err) {
+        console.warn('Firebase leader auth warning:', err);
+      }
+      setIsAdminAuthenticated(true);
+      setCurrentView('admin');
       return true;
     }
     return false;
   };
 
-  const registerTeen = (name: string, username: string, pass: string) => {
-    if (state.users.some(u => u.username === username)) return false;
-    const newUser: User = {
-      id: 'u_' + Date.now(),
-      name,
-      username,
-      password: pass,
-      streak: 1,
-      completedChallenges: [],
-      reflections: {}
+  const loginAdminWithGoogle = async (): Promise<boolean> => {
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      if (cred.user) {
+        setIsAdminAuthenticated(true);
+        setCurrentView('admin');
+        return true;
+      }
+    } catch (err) {
+      console.error('Google Sign In Error:', err);
+    }
+    return false;
+  };
+
+  const logoutAdmin = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {}
+    setIsAdminAuthenticated(false);
+    setCurrentView('teen');
+  };
+
+  const changeAdminPassword = (oldPass: string, newPass: string): boolean => {
+    if (oldPass === adminPassword) {
+      setAdminPassword(newPass);
+      // Sync admin setting
+      setDoc(doc(db, 'settings', 'global'), { adminPassword: newPass }, { merge: true }).catch(() => {});
+      return true;
+    }
+    return false;
+  };
+
+  const completeChallenge = async (challengeId: string, reflection?: string, bonusXP: number = 0) => {
+    if (!currentUserId) return;
+    const user = users.find(u => u.id === currentUserId);
+    if (!user) return;
+
+    const challenge = challenges.find(c => c.id === challengeId);
+    const xpEarned = (challenge?.xp || 0) + bonusXP;
+
+    const currentTotalXP = user.totalXP ?? (user.completedChallenges.reduce((acc, id) => {
+      const ch = challenges.find(c => c.id === id);
+      return acc + (ch ? ch.xp : 0);
+    }, 0) + (user.bonusXP || 0));
+
+    const newCompleted = [...user.completedChallenges, challengeId];
+    const newReflections = reflection ? { ...user.reflections, [challengeId]: reflection } : user.reflections;
+
+    let finalCompleted = newCompleted;
+    let finalReflections = newReflections;
+
+    const newActiveTimers = { ...(user.activeTimers || {}) };
+    delete newActiveTimers[challengeId];
+
+    // Condição de ciclo: checa se todos os desafios disponíveis foram concluídos
+    const activeChallengeIds = challenges.map(c => c.id);
+    const hasAll = activeChallengeIds.length > 0 && activeChallengeIds.every(id => newCompleted.includes(id));
+
+    if (hasAll) {
+      // Volta status para não concluído destravando tudo para o próximo ciclo
+      finalCompleted = [];
+      finalReflections = {};
+    }
+
+    const updatedUser: User = {
+      ...user,
+      completedChallenges: finalCompleted,
+      reflections: finalReflections,
+      totalXP: currentTotalXP + xpEarned,
+      bonusXP: 0,
+      activeTimers: newActiveTimers
     };
-    updateState({ users: [...state.users, newUser], currentUserId: newUser.id, currentView: 'teen' });
-    return true;
-  };
 
-  const logoutTeen = () => {
-    updateState({ currentUserId: null });
-  };
+    setUsers(prev => prev.map(u => u.id === currentUserId ? updatedUser : u));
 
-  const loginAdmin = (pass: string) => {
-    if (pass === state.adminPassword) {
-      updateState({ isAdminAuthenticated: true, currentView: 'admin' });
-      return true;
+    try {
+      await setDoc(doc(db, 'users', currentUserId), updatedUser, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${currentUserId}`);
     }
-    return false;
   };
 
-  const logoutAdmin = () => {
-    updateState({ isAdminAuthenticated: false, currentView: 'teen' });
-  };
+  const startChallengeTimer = async (challengeId: string) => {
+    if (!currentUserId) return;
+    const user = users.find(u => u.id === currentUserId);
+    if (!user) return;
 
-  const changeAdminPassword = (oldPass: string, newPass: string) => {
-    if (oldPass === state.adminPassword) {
-      updateState({ adminPassword: newPass });
-      return true;
+    const newActiveTimers = { ...(user.activeTimers || {}), [challengeId]: Date.now() };
+    const updatedUser = { ...user, activeTimers: newActiveTimers };
+
+    setUsers(prev => prev.map(u => u.id === currentUserId ? updatedUser : u));
+
+    try {
+      await setDoc(doc(db, 'users', currentUserId), { activeTimers: newActiveTimers }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${currentUserId}`);
     }
-    return false;
   };
 
-  const setCurrentView = (view: 'teen' | 'admin') => updateState({ currentView: view });
+  const addBonusXP = async (amount: number) => {
+    if (!currentUserId) return;
+    const user = users.find(u => u.id === currentUserId);
+    if (!user) return;
 
-  const completeChallenge = (challengeId: string, reflection?: string, bonusXP: number = 0) => {
-    if (!state.currentUserId) return;
-    setState(prev => {
-      const challenge = prev.challenges.find(c => c.id === challengeId);
-      const xpEarned = (challenge?.xp || 0) + bonusXP;
+    const currentTotalXP = user.totalXP ?? (user.completedChallenges.reduce((acc, id) => {
+      const ch = challenges.find(c => c.id === id);
+      return acc + (ch ? ch.xp : 0);
+    }, 0) + (user.bonusXP || 0));
 
-      const users = prev.users.map(u => {
-        if (u.id === prev.currentUserId) {
-          // Calcula XP atual se ainda não estiver definido no totalXP
-          const currentTotalXP = u.totalXP ?? (u.completedChallenges.reduce((acc, id) => {
-            const ch = prev.challenges.find(c => c.id === id);
-            return acc + (ch ? ch.xp : 0);
-          }, 0) + (u.bonusXP || 0));
+    const updatedTotal = currentTotalXP + amount;
+    const updatedUser = { ...user, totalXP: updatedTotal, bonusXP: 0 };
 
-          const newCompleted = [...u.completedChallenges, challengeId];
-          const newReflections = reflection ? { ...u.reflections, [challengeId]: reflection } : u.reflections;
-          
-          let finalCompleted = newCompleted;
-          let finalReflections = newReflections;
-          
-          const newActiveTimers = { ...(u.activeTimers || {}) };
-          delete newActiveTimers[challengeId];
+    setUsers(prev => prev.map(u => u.id === currentUserId ? updatedUser : u));
 
-          // Condição de ciclo: checa se todos os desafios disponíveis foram concluídos
-          const activeChallengeIds = prev.challenges.map(c => c.id);
-          const hasAll = activeChallengeIds.length > 0 && activeChallengeIds.every(id => newCompleted.includes(id));
-          
-          if (hasAll) {
-            // Volta status para não concluído destravando tudo
-            finalCompleted = []; 
-            // Mantém ou reseta reflexões? Melhor limpar para a nova rodada
-            finalReflections = {};
-          }
-
-          return {
-            ...u,
-            completedChallenges: finalCompleted,
-            reflections: finalReflections,
-            totalXP: currentTotalXP + xpEarned,
-            bonusXP: 0, // migrado para totalXP
-            activeTimers: newActiveTimers
-          };
-        }
-        return u;
-      });
-      return { ...prev, users };
-    });
-  };
-
-  const startChallengeTimer = (challengeId: string) => {
-    if (!state.currentUserId) return;
-    setState(prev => ({
-      ...prev,
-      users: prev.users.map(u => {
-        if (u.id === prev.currentUserId) {
-          return {
-            ...u,
-            activeTimers: { ...(u.activeTimers || {}), [challengeId]: Date.now() }
-          };
-        }
-        return u;
-      })
-    }));
-  };
-
-  const addBonusXP = (amount: number) => {
-    if (!state.currentUserId) return;
-    setState(prev => {
-      const users = prev.users.map(u => {
-        if (u.id === prev.currentUserId) {
-          const currentTotalXP = u.totalXP ?? (u.completedChallenges.reduce((acc, id) => {
-            const ch = prev.challenges.find(c => c.id === id);
-            return acc + (ch ? ch.xp : 0);
-          }, 0) + (u.bonusXP || 0));
-          return { ...u, totalXP: currentTotalXP + amount, bonusXP: 0 };
-        }
-        return u;
-      });
-      return { ...prev, users };
-    });
+    try {
+      await setDoc(doc(db, 'users', currentUserId), { totalXP: updatedTotal, bonusXP: 0 }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${currentUserId}`);
+    }
   };
 
   const uncompleteChallenge = (challengeId: string) => {
-    // Retirado a pedido do usuário (ficam desativados/bloqueados após concluídos)
-    // Mantemos a função por compatibilidade, mas sem remover XP
-    if (!state.currentUserId) return;
-    setState(prev => {
-      const users = prev.users.map(u => {
-        if (u.id === prev.currentUserId) {
-          const { [challengeId]: removedRef, ...restRefs } = u.reflections;
-          return {
-            ...u,
-            completedChallenges: u.completedChallenges.filter(id => id !== challengeId),
-            reflections: restRefs
-          };
-        }
-        return u;
-      });
-      return { ...prev, users };
-    });
+    if (!currentUserId) return;
+    const user = users.find(u => u.id === currentUserId);
+    if (!user) return;
+
+    const { [challengeId]: removedRef, ...restRefs } = user.reflections;
+    const updatedUser = {
+      ...user,
+      completedChallenges: user.completedChallenges.filter(id => id !== challengeId),
+      reflections: restRefs
+    };
+
+    setUsers(prev => prev.map(u => u.id === currentUserId ? updatedUser : u));
+    setDoc(doc(db, 'users', currentUserId), updatedUser, { merge: true }).catch(() => {});
   };
 
-  const addChallenge = (challenge: Omit<Challenge, 'id'>) => {
-    const newChallenge: Challenge = { ...challenge, id: 'c_' + Date.now() };
-    updateState({ challenges: [newChallenge, ...state.challenges] });
+  const addChallenge = async (challenge: Omit<Challenge, 'id'>) => {
+    const id = 'c_' + Date.now();
+    const newChallenge: Challenge = { ...challenge, id };
+    setChallenges(prev => [newChallenge, ...prev]);
+
+    try {
+      await setDoc(doc(db, 'challenges', id), newChallenge);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `challenges/${id}`);
+    }
   };
 
-  const updateChallenge = (id: string, updates: Partial<Challenge>) => {
-    updateState({
-      challenges: state.challenges.map(c => c.id === id ? { ...c, ...updates } : c)
-    });
+  const updateChallenge = async (id: string, updates: Partial<Challenge>) => {
+    setChallenges(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+    try {
+      await setDoc(doc(db, 'challenges', id), updates, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `challenges/${id}`);
+    }
   };
 
-  const deleteChallenge = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      challenges: prev.challenges.filter(c => c.id !== id),
-      users: prev.users.map(u => {
-        const { [id]: removedRef, ...restRefs } = u.reflections;
-        return {
-          ...u,
-          completedChallenges: u.completedChallenges.filter(cId => cId !== id),
-          reflections: restRefs
-        };
-      })
+  const deleteChallenge = async (id: string) => {
+    setChallenges(prev => prev.filter(c => c.id !== id));
+    try {
+      await deleteDoc(doc(db, 'challenges', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `challenges/${id}`);
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    setUsers(prev => prev.filter(u => u.id !== id));
+    if (currentUserId === id) {
+      setCurrentUserId(null);
+    }
+    try {
+      await deleteDoc(doc(db, 'users', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `users/${id}`);
+    }
+  };
+
+  const addBook = async (book: Omit<LibraryBook, 'id'> | LibraryBook) => {
+    const id = 'id' in book && book.id ? book.id : 'b_' + Date.now();
+    const newBook: LibraryBook = { ...book, id };
+    setBooks(prev => [newBook, ...prev]);
+    try {
+      await setDoc(doc(db, 'books', id), newBook);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `books/${id}`);
+    }
+  };
+
+  const deleteBook = async (id: string) => {
+    setBooks(prev => prev.filter(b => b.id !== id));
+    try {
+      await deleteDoc(doc(db, 'books', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `books/${id}`);
+    }
+  };
+
+  const setVerseOfTheDay = async (verse: VerseOfTheDay | null) => {
+    setVerseOfTheDayState(verse);
+    try {
+      await setDoc(doc(db, 'settings', 'global'), { verseOfTheDay: verse }, { merge: true });
+    } catch (err) {
+      console.warn('Error saving verse to Firestore:', err);
+    }
+  };
+
+  const addDevotional = async (devotional: Omit<Devotional, 'id'>) => {
+    const id = 'd_' + Date.now();
+    const newDevotional: Devotional = { ...devotional, id };
+    setDevotionals(prev => [newDevotional, ...prev]);
+    try {
+      await setDoc(doc(db, 'devotionals', id), newDevotional);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `devotionals/${id}`);
+    }
+  };
+
+  const updateDevotional = async (id: string, updates: Partial<Devotional>) => {
+    setDevotionals(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+    try {
+      await setDoc(doc(db, 'devotionals', id), updates, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `devotionals/${id}`);
+    }
+  };
+
+  const deleteDevotional = async (id: string) => {
+    setDevotionals(prev => prev.filter(d => d.id !== id));
+    try {
+      await deleteDoc(doc(db, 'devotionals', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `devotionals/${id}`);
+    }
+  };
+
+  const resetAllProgress = async () => {
+    const resetUsers = users.map(u => ({
+      ...u,
+      completedChallenges: [],
+      reflections: {},
+      totalXP: 0,
+      bonusXP: 0,
+      activeTimers: {}
     }));
-  };
+    setUsers(resetUsers);
 
-  const deleteUser = (id: string) => {
-    setState(prev => {
-      const newUsers = prev.users.filter(u => u.id !== id);
-      return {
-        ...prev,
-        users: newUsers,
-        currentUserId: prev.currentUserId === id ? (newUsers[0]?.id || null) : prev.currentUserId
-      };
-    });
-  };
-
-  const addBook = (book: Omit<LibraryBook, 'id'> | LibraryBook) => {
-    const newBook: LibraryBook = { id: 'b_' + Date.now(), ...book };
-    updateState({ books: [newBook, ...(state.books || [])] });
-  };
-
-  const deleteBook = (id: string) => {
-    updateState({ books: (state.books || []).filter(b => b.id !== id) });
-  };
-
-  const setVerseOfTheDay = (verse: VerseOfTheDay | null) => {
-    updateState({ verseOfTheDay: verse });
-  };
-
-  const addDevotional = (devotional: Omit<Devotional, 'id'>) => {
-    const newDevotional: Devotional = { ...devotional, id: 'd_' + Date.now() };
-    updateState({ devotionals: [newDevotional, ...(state.devotionals || [])] });
-  };
-
-  const updateDevotional = (id: string, updates: Partial<Devotional>) => {
-    updateState({
-      devotionals: (state.devotionals || []).map(d => d.id === id ? { ...d, ...updates } : d)
-    });
-  };
-
-  const deleteDevotional = (id: string) => {
-    updateState({ devotionals: (state.devotionals || []).filter(d => d.id !== id) });
-  };
-
-  const resetAllProgress = () => {
-    updateState({
-      users: state.users.map(u => ({ ...u, completedChallenges: [], reflections: {}, totalXP: 0, bonusXP: 0, activeTimers: {} }))
-    });
+    for (const u of resetUsers) {
+      try {
+        await setDoc(doc(db, 'users', u.id), u, { merge: true });
+      } catch (err) {
+        console.error('Error syncing reset to Firestore:', err);
+      }
+    }
   };
 
   return (
     <AppContext.Provider value={{
-      ...state,
       currentUser,
+      currentUserId,
+      users,
+      challenges,
+      books,
+      devotionals,
+      verseOfTheDay,
+      currentView,
+      isAdminAuthenticated,
+      setCurrentView,
       loginTeen,
       registerTeen,
       logoutTeen,
       loginAdmin,
+      loginAdminWithGoogle,
       logoutAdmin,
       changeAdminPassword,
-      setCurrentView,
       completeChallenge,
       addBonusXP,
       uncompleteChallenge,
@@ -387,7 +673,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 export function useAppStore() {
   const context = useContext(AppContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAppStore must be used within an AppProvider');
   }
   return context;

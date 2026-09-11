@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Teen participant profile, rankings, and challenge progress",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "username": { "type": "string", "minLength": 2, "maxLength": 50, "pattern": "^[a-zA-Z0-9_.-]+$" },
+        "streak": { "type": "number" },
+        "completedChallenges": { "type": "array" },
+        "reflections": { "type": "object" },
+        "bonusXP": { "type": "number" },
+        "totalXP": { "type": "number" },
+        "activeTimers": { "type": "object" },
+        "role": { "type": "string", "enum": ["teen", "admin"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "username"]
+    },
+    "Challenge": {
+      "title": "Challenge",
+      "description": "Spiritual missions and challenges for teens",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "description": { "type": "string", "minLength": 3, "maxLength": 1000 },
+        "category": { "type": "string", "maxLength": 50 },
+        "xp": { "type": "number" },
+        "ref": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "title", "description", "category", "xp"]
+    },
+    "Devotional": {
+      "title": "Devotional",
+      "description": "Daily devotional study for youth",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 3, "maxLength": 200 },
+        "date": { "type": "string" },
+        "verse": { "type": "string", "maxLength": 200 },
+        "passage": { "type": "string", "maxLength": 5000 },
+        "reflection": { "type": "string", "maxLength": 5000 },
+        "action": { "type": "string", "maxLength": 2000 }
+      },
+      "required": ["id", "title", "verse", "reflection"]
+    },
+    "Book": {
+      "title": "Book",
+      "description": "Recommended book in the youth library",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "minLength": 2, "maxLength": 200 },
+        "author": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 50 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "coverUrl": { "type": "string", "maxLength": 500 },
+        "downloadUrl": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "title", "author"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global application configuration and verse of the day",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "verseOfTheDay": { "type": "object" },
+        "adminPassword": { "type": "string", "maxLength": 100 }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Collection of youth profiles and completed challenge history"
+    },
+    "/challenges/{challengeId}": {
+      "schema": { "$ref": "#/entities/Challenge" },
+      "description": "Spiritual missions and church goals"
+    },
+    "/devotionals/{devotionalId}": {
+      "schema": { "$ref": "#/entities/Devotional" },
+      "description": "Daily youth devotionals"
+    },
+    "/books/{bookId}": {
+      "schema": { "$ref": "#/entities/Book" },
+      "description": "Youth library books"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Setting" },
+      "description": "Application settings and highlighted verse"
+    }
+  }
+}

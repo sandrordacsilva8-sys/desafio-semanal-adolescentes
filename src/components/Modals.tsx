@@ -17,31 +17,40 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
   const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     
-    if (mode === 'login') {
-      const success = loginTeen(username.toLowerCase(), password);
-      if (success) {
-        onClose();
+    try {
+      if (mode === 'login') {
+        const success = await loginTeen(username.toLowerCase(), password);
+        if (success) {
+          onClose();
+        } else {
+          setError('Usuário ou senha incorretos.');
+        }
       } else {
-        setError('Usuário ou senha incorretos.');
+        if (password !== confirmPassword) {
+          setError('As senhas não coincidem.');
+          setLoading(false);
+          return;
+        }
+        const success = await registerTeen(name, username.toLowerCase(), password);
+        if (success) {
+          onClose();
+        } else {
+          setError('Usuário já existe ou ocorreu um erro.');
+        }
       }
-    } else {
-      if (password !== confirmPassword) {
-        setError('As senhas não coincidem.');
-        return;
-      }
-      const success = registerTeen(name, username.toLowerCase(), password);
-      if (success) {
-        onClose();
-      } else {
-        setError('Usuário já existe.');
-      }
+    } catch (err) {
+      setError('Erro ao conectar com o servidor. Verifique a internet.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,13 +71,15 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
 
         <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800 mb-4">
           <button 
-            onClick={() => setMode('login')} 
+            type="button"
+            onClick={() => { setMode('login'); setError(''); }} 
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${mode === 'login' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
           >
             Já Tenho Conta
           </button>
           <button 
-            onClick={() => setMode('register')} 
+            type="button"
+            onClick={() => { setMode('register'); setError(''); }} 
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${mode === 'register' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'}`}
           >
             Criar Nova Conta
@@ -84,7 +95,8 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
               <input 
                 type="text" required placeholder="Ex: Lucas Silva" 
                 value={name || ''} onChange={e => setName(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 text-sm" 
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 text-sm disabled:opacity-50" 
               />
             </div>
           )}
@@ -96,7 +108,8 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
               <input 
                 type="text" required placeholder={mode === 'login' ? "lucas_focado" : "lucas_silva"}
                 value={username || ''} onChange={e => setUsername(e.target.value)}
-                className={`w-full pl-8 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none text-sm ${mode === 'login' ? 'focus:border-indigo-500' : 'focus:border-emerald-500'}`} 
+                disabled={loading}
+                className={`w-full pl-8 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none text-sm disabled:opacity-50 ${mode === 'login' ? 'focus:border-indigo-500' : 'focus:border-emerald-500'}`} 
               />
             </div>
           </div>
@@ -106,7 +119,8 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
             <input 
               type="password" required placeholder="Digite sua senha" minLength={4}
               value={password || ''} onChange={e => setPassword(e.target.value)}
-              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none text-sm ${mode === 'login' ? 'focus:border-indigo-500' : 'focus:border-emerald-500'}`} 
+              disabled={loading}
+              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none text-sm disabled:opacity-50 ${mode === 'login' ? 'focus:border-indigo-500' : 'focus:border-emerald-500'}`} 
             />
           </div>
 
@@ -116,21 +130,29 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
               <input 
                 type="password" required placeholder="Repita a senha" minLength={4}
                 value={confirmPassword || ''} onChange={e => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 text-sm" 
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-emerald-500 text-sm disabled:opacity-50" 
               />
             </div>
           )}
 
           <button 
             type="submit" 
-            className={`w-full py-3 font-bold rounded-xl text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
+            disabled={loading}
+            className={`w-full py-3 font-bold rounded-xl text-sm shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${
               mode === 'login' 
                 ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20' 
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
             }`}
           >
-            {mode === 'login' ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-            {mode === 'login' ? 'Entrar na Minha Conta' : 'Concluir Cadastro & Começar'}
+            {loading ? (
+              <span className="animate-pulse">Conectando...</span>
+            ) : (
+              <>
+                {mode === 'login' ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                {mode === 'login' ? 'Entrar na Minha Conta' : 'Concluir Cadastro & Começar'}
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -139,20 +161,46 @@ export function AuthModal({ isOpen, onClose }: ModalProps) {
 }
 
 export function AdminAuthModal({ isOpen, onClose }: ModalProps) {
-  const { loginAdmin } = useAppStore();
+  const { loginAdmin, loginAdminWithGoogle } = useAppStore();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginAdmin(password)) {
-      onClose();
-      setPassword('');
-      setError('');
-    } else {
-      setError('Senha incorreta.');
+    setLoading(true);
+    setError('');
+    try {
+      const ok = await loginAdmin(password);
+      if (ok) {
+        onClose();
+        setPassword('');
+      } else {
+        setError('Senha incorreta.');
+      }
+    } catch {
+      setError('Erro ao entrar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const ok = await loginAdminWithGoogle();
+      if (ok) {
+        onClose();
+      } else {
+        setError('Não foi possível entrar com o Google.');
+      }
+    } catch {
+      setError('Erro ao autenticar com Google.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -168,7 +216,7 @@ export function AdminAuthModal({ isOpen, onClose }: ModalProps) {
             <Shield className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-extrabold text-white">Acesso Restrito ao Líder</h3>
-          <p className="text-xs text-slate-400 mt-1">Digite a senha administrativa para continuar.</p>
+          <p className="text-xs text-slate-400 mt-1">Digite a senha administrativa ou use sua conta Google.</p>
         </div>
 
         {error && <div className="text-xs font-bold text-rose-400 text-center">{error}</div>}
@@ -179,18 +227,43 @@ export function AdminAuthModal({ isOpen, onClose }: ModalProps) {
             <input 
               type="password" required placeholder="Digite a senha" 
               value={password || ''} onChange={e => setPassword(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm" 
+              disabled={loading}
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-indigo-500 text-sm disabled:opacity-50" 
             />
             <p className="text-[11px] text-slate-500 mt-1 italic">Dica: <strong className="text-indigo-400">lider123</strong></p>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="px-3.5 py-2 text-slate-400 hover:text-white text-xs font-semibold">Cancelar</button>
-            <button type="submit" className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md">
-              Desbloquear Painel
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md disabled:opacity-50"
+            >
+              {loading ? 'Entrando...' : 'Desbloquear Painel'}
             </button>
           </div>
         </form>
+
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
+          <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-900 px-2 text-slate-500">ou</span></div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24">
+            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.4l3.7 2.9C6.5 7.4 9 5 12 5z"/>
+            <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/>
+            <path fill="#FBBC05" d="M5.6 14.7c-.2-.7-.4-1.4-.4-2.2 0-.8.2-1.5.4-2.2L1.9 7.4C.7 9.8 0 12.3 0 15s.7 5.2 1.9 7.6l3.7-2.9z"/>
+            <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.3L1.9 16c1.8 3.8 5.6 7 10.1 7z"/>
+          </svg>
+          Entrar com Google (Líder)
+        </button>
       </div>
     </div>
   );
