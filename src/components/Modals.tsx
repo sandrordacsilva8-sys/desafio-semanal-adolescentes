@@ -288,7 +288,7 @@ export function ReflectionModal({
 
   const handleConfirm = () => {
     const elapsed = Date.now() - openTime;
-    if (elapsed < 3 * 60 * 1000) {
+    if (elapsed < 1000) {
       setErrorMsg('Não concluiu: Não Desista, Perto está o Senhor');
       return;
     }
@@ -298,7 +298,7 @@ export function ReflectionModal({
 
   const handleSkip = () => {
     const elapsed = Date.now() - openTime;
-    if (elapsed < 3 * 60 * 1000) {
+    if (elapsed < 1000) {
       setErrorMsg('Não concluiu: Não Desista, Perto está o Senhor');
       return;
     }

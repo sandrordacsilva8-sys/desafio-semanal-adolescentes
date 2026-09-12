@@ -204,7 +204,7 @@ export function TeenView() {
                 const reflection = currentUser.reflections[ch.id];
                 const startTime = currentUser.activeTimers?.[ch.id];
                 const elapsedMs = startTime ? now - startTime : 0;
-                const remainingSeconds = Math.max(0, 180 - Math.floor(elapsedMs / 1000));
+                const remainingSeconds = Math.max(0, 1 - Math.floor(elapsedMs / 1000));
                 
                 const formatTime = (secs: number) => {
                   const m = Math.floor(secs / 60).toString().padStart(2, '0');
